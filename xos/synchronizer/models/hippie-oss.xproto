@@ -1,0 +1,18 @@
+option name = "hippie-oss";
+option app_label = "hippie-oss";
+
+message HippieOSSService (Service){
+    option verbose_name = "HippieOSS Service";
+    option kind = "OSS";
+}
+
+message HippieOSSServiceInstance (ServiceInstance){
+    option owner_class_name = "HippieOSSService";
+    option verbose_name = "HippieOSS Service Instance";
+
+    required bool valid = 1 [help_text = "Wether this ONU has been validated by the external OSS", default = False, null = False, db_index = False, blank = False];
+    required string serial_number = 2 [max_length = 254, null = False, db_index = False, blank = False, tosca_key=True, unique = True];
+    required int32 uni_port_id = 3 [null = False, db_index = False, blank = False];
+    required string of_dpid = 4 [max_length = 254, null = False, db_index = False, blank = False];
+    optional int32 c_tag = 4 [null = True, db_index = False, blank = False, unique = True, feedback_state = True];
+}
