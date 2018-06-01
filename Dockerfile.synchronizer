@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# xosproject/volt-synchronizer
+# docker build -t xosproject/hippie-oss-synchronizer:candidate -f Dockerfile.synchronizer .
+
+# xosproject/hippie-oss-synchronizer
 
 FROM xosproject/xos-synchronizer-base:candidate
 

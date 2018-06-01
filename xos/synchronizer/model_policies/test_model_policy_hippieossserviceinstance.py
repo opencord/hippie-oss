@@ -1,0 +1,148 @@
+
+# Copyright 2017-present Open Networking Foundation
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+import unittest
+from mock import patch, call, Mock, PropertyMock
+
+import os, sys
+
+test_path=os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
+service_dir=os.path.join(test_path, "../../../..")
+xos_dir=os.path.join(test_path, "../../..")
+if not os.path.exists(os.path.join(test_path, "new_base")):
+    xos_dir=os.path.join(test_path, "../../../../../../orchestration/xos/xos")
+    services_dir=os.path.join(xos_dir, "../../xos_services")
+
+# While transitioning from static to dynamic load, the path to find neighboring xproto files has changed. So check
+# both possible locations...
+def get_models_fn(service_name, xproto_name):
+    name = os.path.join(service_name, "xos", xproto_name)
+    if os.path.exists(os.path.join(services_dir, name)):
+        return name
+    else:
+        name = os.path.join(service_name, "xos", "synchronizer", "models", xproto_name)
+        if os.path.exists(os.path.join(services_dir, name)):
+            return name
+    raise Exception("Unable to find service=%s xproto=%s" % (service_name, xproto_name))
+
+class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
+    def setUp(self):
+        global VOLTServiceInstancePolicy, MockObjectList
+
+        self.sys_path_save = sys.path
+        sys.path.append(xos_dir)
+        sys.path.append(os.path.join(xos_dir, 'synchronizers', 'new_base'))
+
+        config = os.path.join(test_path, "../test_config.yaml")
+        from xosconfig import Config
+        Config.clear()
+        Config.init(config, 'synchronizer-config-schema.yaml')
+
+        from synchronizers.new_base.mock_modelaccessor_build import build_mock_modelaccessor
+        build_mock_modelaccessor(xos_dir, services_dir, [
+            get_models_fn("hippie-oss", "hippie-oss.xproto"),
+            get_models_fn("olt-service", "volt.xproto"),
+            get_models_fn("../profiles/rcord", "rcord.xproto")
+        ])
+
+        import synchronizers.new_base.modelaccessor
+        from model_policy_hippieossserviceinstance import OSSServiceInstancePolicy, RCORDSubscriber, ONUDevice, model_accessor
+
+        from mock_modelaccessor import MockObjectList
+
+        # import all class names to globals
+        for (k, v) in model_accessor.all_model_classes.items():
+            globals()[k] = v
+
+        # Some of the functions we call have side-effects. For example, creating a VSGServiceInstance may lead to creation of
+        # tags. Ideally, this wouldn't happen, but it does. So make sure we reset the world.
+        model_accessor.reset_all_object_stores()
+
+        self.policy = OSSServiceInstancePolicy()
+        self.si = Mock()
+
+    def tearDown(self):
+        sys.path = self.sys_path_save
+        self.si = None
+
+    def test_skip_update(self):
+        self.si.valid = "awaiting"
+
+        with patch.object(RCORDSubscriber, "save") as subscriber_save, \
+            patch.object(ONUDevice, "save") as onu_save:
+
+            self.policy.handle_update(self.si)
+            subscriber_save.assert_not_called()
+            onu_save.assert_not_called()
+
+    def test_disable_onu(self):
+        self.si.valid = "invalid"
+        self.si.serial_number = "BRCM1234"
+
+        onu = ONUDevice(
+            serial_number=self.si.serial_number
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+            patch.object(RCORDSubscriber, "save") as subscriber_save, \
+            patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
+
+            self.policy.handle_update(self.si)
+            subscriber_save.assert_not_called()
+            self.assertEqual(onu.admin_state, "DISABLED")
+            onu_save.assert_called()
+
+    def test_create_subscriber(self):
+        self.si.valid = "valid"
+        self.si.serial_number = "BRCM1234"
+        self.si.uni_port_id = 16
+
+        with patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+            patch.object(ONUDevice, "save") as onu_save:
+
+            self.policy.handle_update(self.si)
+            self.assertEqual(subscriber_save.call_count, 1)
+
+            subscriber = subscriber_save.call_args[0][0]
+            self.assertEqual(subscriber.onu_device, self.si.serial_number)
+            self.assertEqual(subscriber.uni_port_id, self.si.uni_port_id)
+
+            onu_save.assert_not_called()
+
+    def test_create_subscriber_with_ctag(self):
+        self.si.valid = "valid"
+        self.si.serial_number = "BRCM1234"
+        self.si.uni_port_id = 16
+        self.si.c_tag = 111
+
+        with patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+            patch.object(ONUDevice, "save") as onu_save:
+
+            self.policy.handle_update(self.si)
+            self.assertEqual(subscriber_save.call_count, 1)
+
+            subscriber = subscriber_save.call_args[0][0]
+            self.assertEqual(subscriber.onu_device, self.si.serial_number)
+            self.assertEqual(subscriber.uni_port_id, self.si.uni_port_id)
+            self.assertEqual(subscriber.c_tag, self.si.c_tag)
+
+            onu_save.assert_not_called()
+
+if __name__ == '__main__':
+    unittest.main()
+

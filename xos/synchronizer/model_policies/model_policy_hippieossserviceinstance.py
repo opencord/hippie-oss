@@ -14,7 +14,7 @@
 # limitations under the License.
 
 
-from synchronizers.new_base.modelaccessor import RCORDSubscriber, model_accessor
+from synchronizers.new_base.modelaccessor import RCORDSubscriber, ONUDevice, model_accessor
 from synchronizers.new_base.policy import Policy
 
 class OSSServiceInstancePolicy(Policy):
@@ -22,12 +22,18 @@ class OSSServiceInstancePolicy(Policy):
 
     def handle_update(self, si):
         self.logger.debug("MODEL_POLICY: handle_update for HippieOSSServiceInstance %s " % si.id)
-        if not si.valid:
-            # NOTE we don't do anything if the ONU has not been activated
-            self.logger.debug("MODEL_POLICY: skipping handle_update for HippieOSSServiceInstance %s as valid is %s" % (si.id, si.valid))
-            pass
-        else:
-            self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s as valid is %s" % (si.id, si.valid))
+
+        if not hasattr(si, 'valid') or si.valid is "awaiting":
+            self.logger.debug("MODEL_POLICY: skipping handle_update for HippieOSSServiceInstance %s as not validated yet" % si.id)
+            return
+        if si.valid == "invalid":
+            self.logger.debug("MODEL_POLICY: disabling ONUDevice [%s] for HippieOSSServiceInstance %s" % (si.serial_number, si.id))
+            onu = ONUDevice.objects.get(serial_number=si.serial_number)
+            onu.admin_state = "DISABLED"
+            onu.save(always_update_timestamp=True)
+            return
+        if si.valid == "valid":
+            self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s" % si.id)
             subscriber = RCORDSubscriber()
             subscriber.onu_device = si.serial_number
             subscriber.uni_port_id = si.uni_port_id
@@ -37,6 +43,7 @@ class OSSServiceInstancePolicy(Policy):
                 subscriber.c_tag = si.c_tag
 
             subscriber.save()
+            return
 
     def handle_delete(self, si):
         pass

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from synchronizers.new_base.SyncInstanceUsingAnsible import SyncStep
+from synchronizers.new_base.syncstep import SyncStep, model_accessor
 from synchronizers.new_base.modelaccessor import HippieOSSServiceInstance
 
 from xosconfig import Config
@@ -25,8 +25,15 @@ class SyncOSSServiceInstance(SyncStep):
     provides = [HippieOSSServiceInstance]
     observes = HippieOSSServiceInstance
 
-    def validate_in_external_oss(self, serial_number):
+    def validate_in_external_oss(self, si):
         # This is where you may want to call your OSS Database to verify if this ONU can be activated
+
+        # for demonstration the HippieOSSService has a blacklist and if the serial_number
+        # you provided is in that blacklist, it won't be validated
+        oss_service = si.owner.leaf_model
+
+        if si.serial_number in [x.strip() for x in oss_service.blacklist.split(',')]:
+            return False
         return True
 
     def get_suscriber_c_tag(self, serial_number):
@@ -37,14 +44,14 @@ class SyncOSSServiceInstance(SyncStep):
     def sync_record(self, o):
         log.info("synching HippieOSSServiceInstance", object=str(o), **o.tologdict())
 
-        if not self.validate_in_external_oss(o.serial_number):
-            log.error("ONU with serial number %s is not valid in the OSS Database")
-            return
+        if not self.validate_in_external_oss(o):
+            log.error("ONU with serial number %s is not valid in the OSS Database" % o.serial_number)
+            o.valid = "invalid"
+        else:
+            if self.get_suscriber_c_tag(o.serial_number):
+                self.c_tag = self.get_suscriber_c_tag(o.serial_number)
 
-        if self.get_suscriber_c_tag(o.serial_number):
-            self.c_tag = self.get_suscriber_c_tag(o.serial_number)
-
-        o.valid = True
+            o.valid = "valid"
 
         # FIXME why without this model_policies won't run the handle_update?
         o.no_sync = True

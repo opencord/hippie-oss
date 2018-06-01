@@ -5,7 +5,7 @@ As the name suggests this service will be very welcoming and validate any ONU th
 
 Peace and Love
 
-> NOTE: This service depends on RCORDSubscriber so make sure that the `rcord-synchronizer` is running
+> NOTE: This service depends on RCORDSubscriber and ONUDevice so make sure that the `rcord-synchronizer` and `volt-synchronizer` are running
 
 ## How to install this service
 
