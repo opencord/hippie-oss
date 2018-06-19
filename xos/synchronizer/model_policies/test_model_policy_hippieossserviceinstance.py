@@ -26,16 +26,10 @@ if not os.path.exists(os.path.join(test_path, "new_base")):
     xos_dir=os.path.join(test_path, "../../../../../../orchestration/xos/xos")
     services_dir=os.path.join(xos_dir, "../../xos_services")
 
-# While transitioning from static to dynamic load, the path to find neighboring xproto files has changed. So check
-# both possible locations...
 def get_models_fn(service_name, xproto_name):
-    name = os.path.join(service_name, "xos", xproto_name)
+    name = os.path.join(service_name, "xos", "synchronizer", "models", xproto_name)
     if os.path.exists(os.path.join(services_dir, name)):
         return name
-    else:
-        name = os.path.join(service_name, "xos", "synchronizer", "models", xproto_name)
-        if os.path.exists(os.path.join(services_dir, name)):
-            return name
     raise Exception("Unable to find service=%s xproto=%s" % (service_name, xproto_name))
 
 class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
@@ -59,7 +53,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         ])
 
         import synchronizers.new_base.modelaccessor
-        from model_policy_hippieossserviceinstance import OSSServiceInstancePolicy, RCORDSubscriber, ONUDevice, model_accessor
+        from model_policy_hippieossserviceinstance import OSSServiceInstancePolicy, model_accessor
 
         from mock_modelaccessor import MockObjectList
 
@@ -97,8 +91,8 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         )
 
         with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
-            patch.object(RCORDSubscriber, "save") as subscriber_save, \
-            patch.object(ONUDevice, "save") as onu_save:
+                patch.object(RCORDSubscriber, "save") as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
 
             onu_objects.return_value = [onu]
 
@@ -107,38 +101,108 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
             self.assertEqual(onu.admin_state, "DISABLED")
             onu_save.assert_called()
 
+    def test_enable_onu(self):
+        self.si.valid = "valid"
+        self.si.serial_number = "BRCM1234"
+        self.si.c_tag = None
+
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="DISABLED"
+        )
+
+        subscriber = RCORDSubscriber(
+            onu_device=self.si.serial_number,
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber.objects, "get_items") as subscriber_objects, \
+                patch.object(RCORDSubscriber, "save") as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
+            subscriber_objects.return_value = [subscriber]
+
+            self.policy.handle_update(self.si)
+            subscriber_save.assert_not_called()
+            self.assertEqual(onu.admin_state, "ENABLED")
+            onu_save.assert_called()
+
     def test_create_subscriber(self):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
-        self.si.uni_port_id = 16
 
-        with patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
-            patch.object(ONUDevice, "save") as onu_save:
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="ENABLED"
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
 
             self.policy.handle_update(self.si)
             self.assertEqual(subscriber_save.call_count, 1)
 
             subscriber = subscriber_save.call_args[0][0]
             self.assertEqual(subscriber.onu_device, self.si.serial_number)
-            self.assertEqual(subscriber.uni_port_id, self.si.uni_port_id)
 
             onu_save.assert_not_called()
 
     def test_create_subscriber_with_ctag(self):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
-        self.si.uni_port_id = 16
         self.si.c_tag = 111
 
-        with patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
-            patch.object(ONUDevice, "save") as onu_save:
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="ENABLED"
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
 
             self.policy.handle_update(self.si)
             self.assertEqual(subscriber_save.call_count, 1)
 
             subscriber = subscriber_save.call_args[0][0]
             self.assertEqual(subscriber.onu_device, self.si.serial_number)
-            self.assertEqual(subscriber.uni_port_id, self.si.uni_port_id)
+            self.assertEqual(subscriber.c_tag, self.si.c_tag)
+
+            onu_save.assert_not_called()
+
+    def test_add_c_tag_to_pre_provisioned_subscriber(self):
+        self.si.valid = "valid"
+        self.si.serial_number = "BRCM1234"
+        self.si.c_tag = 111
+
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="ENABLED"
+        )
+
+        subscriber = RCORDSubscriber(
+            onu_device=self.si.serial_number,
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber.objects, "get_items") as subscriber_objects, \
+                patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
+            subscriber_objects.return_value = [subscriber]
+
+            self.policy.handle_update(self.si)
+            self.assertEqual(subscriber_save.call_count, 1)
+
+            subscriber = subscriber_save.call_args[0][0]
+            self.assertEqual(subscriber.onu_device, self.si.serial_number)
             self.assertEqual(subscriber.c_tag, self.si.c_tag)
 
             onu_save.assert_not_called()

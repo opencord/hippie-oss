@@ -33,14 +33,35 @@ class OSSServiceInstancePolicy(Policy):
             onu.save(always_update_timestamp=True)
             return
         if si.valid == "valid":
-            self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s" % si.id)
-            subscriber = RCORDSubscriber()
-            subscriber.onu_device = si.serial_number
-            subscriber.uni_port_id = si.uni_port_id
 
-            # If the OSS returns a c_tag use that one
-            if si.c_tag:
-                subscriber.c_tag = si.c_tag
+            # reactivating the ONUDevice
+            onu = ONUDevice.objects.get(serial_number=si.serial_number)
+            if onu.admin_state == "DISABLED":
+                self.logger.debug("MODEL_POLICY: enabling ONUDevice [%s] for HippieOSSServiceInstance %s" % (
+                si.serial_number, si.id))
+                onu.admin_state = "ENABLED"
+                onu.save(always_update_timestamp=True)
+
+            # NOTE this assumes that an ONUDevice has only one Subscriber
+            try:
+                subscriber = RCORDSubscriber.objects.get(onu_device=si.serial_number)
+
+                # If the OSS returns a c_tag and the subscriber doesn't already have his one
+                if si.c_tag and not subscriber.c_tag:
+                    self.logger.debug("MODEL_POLICY: updating c_tag for RCORDSubscriber %s and HippieOSSServiceInstance %s" % (subscriber.id, si.id))
+                    subscriber.c_tag = si.c_tag
+                else:
+                    # if we're not changing anything in the subscriber, we don't need to update it
+                    return
+            except IndexError, e:
+                self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s" % si.id)
+
+                subscriber = RCORDSubscriber()
+                subscriber.onu_device = si.serial_number
+
+                # If the OSS returns a c_tag use that one
+                if si.c_tag:
+                    subscriber.c_tag = si.c_tag
 
             subscriber.save()
             return
