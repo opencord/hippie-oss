@@ -37,7 +37,6 @@ class ORMWrapperHippieOSSService(ORMWrapperServiceInstance):
         # create an HippieOSSServiceInstance, the validation will be triggered in the corresponding sync step
         oss_si = self.stub.HippieOSSServiceInstance(
             serial_number=event["serial_number"],
-            uni_port_id=event["uni_port_id"],
             of_dpid=event["of_dpid"]
         )
         oss_si.save()
