@@ -35,35 +35,48 @@ class OSSServiceInstancePolicy(Policy):
         if si.valid == "valid":
 
             # reactivating the ONUDevice
-            onu = ONUDevice.objects.get(serial_number=si.serial_number)
+            try:
+                onu = ONUDevice.objects.get(serial_number=si.serial_number)
+            except IndexError:
+                raise Exception("MODEL_POLICY: cannot find ONUDevice [%s] for HippieOSSServiceInstance %s" % (si.serial_number, si.id))
             if onu.admin_state == "DISABLED":
-                self.logger.debug("MODEL_POLICY: enabling ONUDevice [%s] for HippieOSSServiceInstance %s" % (
-                si.serial_number, si.id))
+                self.logger.debug("MODEL_POLICY: enabling ONUDevice [%s] for HippieOSSServiceInstance %s" % (si.serial_number, si.id))
                 onu.admin_state = "ENABLED"
                 onu.save(always_update_timestamp=True)
 
             # NOTE this assumes that an ONUDevice has only one Subscriber
             try:
+                subscriber_changed = False
                 subscriber = RCORDSubscriber.objects.get(onu_device=si.serial_number)
+                self.logger.debug("MODEL_POLICY: found subscriber for valid ONU", onu=si.serial_number)
 
                 # If the OSS returns a c_tag and the subscriber doesn't already have his one
                 if si.c_tag and not subscriber.c_tag:
                     self.logger.debug("MODEL_POLICY: updating c_tag for RCORDSubscriber %s and HippieOSSServiceInstance %s" % (subscriber.id, si.id))
                     subscriber.c_tag = si.c_tag
-                else:
-                    # if we're not changing anything in the subscriber, we don't need to update it
+                    subscriber_changed = True
+                
+                # if the subscriber was in pre-provisioned state, change it's status, otherwise leave it as is
+                if subscriber.status == "pre-provisioned":
+                    subscriber.status = "awaiting-auth"
+                    self.logger.debug("MODEL_POLICY: setting subscriber status", status=subscriber.status)
+                    subscriber_changed = True
+                
+                if not subscriber_changed:
+                    # do not trigger an update unless it's needed
                     return
-            except IndexError, e:
+            except IndexError:
                 self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s" % si.id)
 
                 subscriber = RCORDSubscriber()
                 subscriber.onu_device = si.serial_number
+                subscriber.status == "awaiting-auth"
 
                 # If the OSS returns a c_tag use that one
                 if si.c_tag:
                     subscriber.c_tag = si.c_tag
 
-            subscriber.save()
+            subscriber.save(always_update_timestamp=True)
             return
 
     def handle_delete(self, si):

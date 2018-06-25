@@ -34,5 +34,4 @@ topology_template:
         name: Invalid ONU example
         of_dpid: "of:1234"
         serial_number: 845f10885b5c479daab9e825c1f4ced8
-        uni_port_id: 16
 

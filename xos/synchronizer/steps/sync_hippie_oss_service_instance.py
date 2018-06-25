@@ -53,7 +53,8 @@ class SyncOSSServiceInstance(SyncStep):
 
             o.valid = "valid"
 
-        # FIXME why without this model_policies won't run the handle_update?
+        # we need to update the timestamp to run model_policies again, but we don't want to loop over the sync_steps
+        # maybe we need an "after_sync" model policy method?
         o.no_sync = True
         o.save(always_update_timestamp=True)
 
