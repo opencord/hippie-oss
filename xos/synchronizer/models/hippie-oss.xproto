@@ -5,7 +5,7 @@ message HippieOSSService (Service){
     option verbose_name = "HippieOSS Service";
     option kind = "OSS";
 
-    optional string blacklist = 1 [help_text = "A comma separated list of ONUs that are deemed not to be valid ONUs", null = True, db_index = False, blank = False];
+    optional string whitelist = 1 [help_text = "A comma separated list of ONUs that are deemed to be valid ONUs", null = True, db_index = False, blank = False];
 }
 
 message HippieOSSServiceInstance (ServiceInstance){

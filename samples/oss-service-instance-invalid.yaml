@@ -26,7 +26,7 @@ topology_template:
       properties:
         name: hippie-oss
         must-exist: true
-        blacklist: 845f10885b5c479daab9e825c1f4ced8 # NOTE: this ONU must exist in the system (check in olt-service examples to create it)
+        whitelist: ""
 
     oss_si:
       type: tosca.nodes.HippieOSSServiceInstance

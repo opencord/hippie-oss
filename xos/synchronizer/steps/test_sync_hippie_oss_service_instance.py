@@ -78,7 +78,7 @@ class TestSyncHippieOssServiceInstance(unittest.TestCase):
 
         self.oss = Mock()
         self.oss.name = "oss"
-        self.oss.blacklist = ""
+        self.oss.whitelist = "BRCM5678, BRCM1234"
 
         # create a mock VRouterStaticRoute instance
         self.o = Mock()
@@ -101,10 +101,13 @@ class TestSyncHippieOssServiceInstance(unittest.TestCase):
         self.o.save.assert_called()
 
     def test_sync_rejected(self):
-        self.oss.blacklist = "BRCM5678, BRCM1234"
+        self.oss.whitelist = ""
 
         self.sync_step().sync_record(self.o)
 
         self.assertEqual(self.o.valid, "invalid")
         self.assertTrue(self.o.no_sync)
         self.o.save.assert_called()
+
+if __name__ == '__main__':
+    unittest.main()

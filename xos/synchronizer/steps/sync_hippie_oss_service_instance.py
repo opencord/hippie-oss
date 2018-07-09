@@ -28,11 +28,11 @@ class SyncOSSServiceInstance(SyncStep):
     def validate_in_external_oss(self, si):
         # This is where you may want to call your OSS Database to verify if this ONU can be activated
 
-        # for demonstration the HippieOSSService has a blacklist and if the serial_number
-        # you provided is in that blacklist, it won't be validated
+        # for demonstration the HippieOSSService has a whitelist and if the serial_number
+        # you provided is not in that blacklist, it won't be validated
         oss_service = si.owner.leaf_model
 
-        if si.serial_number in [x.strip() for x in oss_service.blacklist.split(',')]:
+        if si.serial_number not in [x.strip() for x in oss_service.whitelist.split(',')]:
             return False
         return True
 
