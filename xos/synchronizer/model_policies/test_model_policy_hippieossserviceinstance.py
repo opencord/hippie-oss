@@ -72,8 +72,21 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         sys.path = self.sys_path_save
         self.si = None
 
+    def test_not_synced(self):
+        self.si.valid = "awaiting"
+        self.si.backend_code = 0
+
+        with patch.object(RCORDSubscriber, "save") as subscriber_save, \
+            patch.object(ONUDevice, "save") as onu_save:
+
+            with self.assertRaises(Exception) as e:
+               self.policy.handle_update(self.si)
+
+            self.assertIn("has not been synced yet", e.exception.message)
+
     def test_skip_update(self):
         self.si.valid = "awaiting"
+        self.si.backend_code = 1
 
         with patch.object(RCORDSubscriber, "save") as subscriber_save, \
             patch.object(ONUDevice, "save") as onu_save:
@@ -85,6 +98,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
     def test_disable_onu(self):
         self.si.valid = "invalid"
         self.si.serial_number = "BRCM1234"
+        self.si.backend_code = 1
 
         onu = ONUDevice(
             serial_number=self.si.serial_number
@@ -105,6 +119,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
         self.si.c_tag = None
+        self.si.backend_code = 1
 
         onu = ONUDevice(
             serial_number=self.si.serial_number,
@@ -131,6 +146,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
     def test_create_subscriber(self):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
+        self.si.backend_code = 1
 
         onu = ONUDevice(
             serial_number=self.si.serial_number,
@@ -155,6 +171,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
         self.si.c_tag = 111
+        self.si.backend_code = 1
 
         onu = ONUDevice(
             serial_number=self.si.serial_number,
@@ -180,6 +197,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
         self.si.c_tag = 111
+        self.si.backend_code = 1
 
         onu = ONUDevice(
             serial_number=self.si.serial_number,

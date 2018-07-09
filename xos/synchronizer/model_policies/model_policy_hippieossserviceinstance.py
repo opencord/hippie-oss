@@ -20,8 +20,18 @@ from synchronizers.new_base.policy import Policy
 class OSSServiceInstancePolicy(Policy):
     model_name = "HippieOSSServiceInstance"
 
+    def handle_create(self, si):
+        self.logger.debug("MODEL_POLICY: handle_create for HippieOSSServiceInstance %s " % si.id)
+        self.handle_update(si)
+
     def handle_update(self, si):
-        self.logger.debug("MODEL_POLICY: handle_update for HippieOSSServiceInstance %s " % si.id)
+        self.logger.debug("MODEL_POLICY: handle_update for HippieOSSServiceInstance %s, valid=%s " % (si.id, si.valid))
+
+        # Check to make sure the object has been synced. This is to cover a race condition where the model_policy
+        # runs, is interrupted by the sync step, the sync step completes, and then the model policy ends up saving
+        # a policed_timestamp that is later the updated timestamp set by the sync_step.
+        if (si.backend_code!=1):
+            raise Exception("MODEL_POLICY: HippieOSSServiceInstance %s has not been synced yet" % si.id)
 
         if not hasattr(si, 'valid') or si.valid is "awaiting":
             self.logger.debug("MODEL_POLICY: skipping handle_update for HippieOSSServiceInstance %s as not validated yet" % si.id)

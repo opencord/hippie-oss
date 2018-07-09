@@ -53,10 +53,11 @@ class SyncOSSServiceInstance(SyncStep):
 
             o.valid = "valid"
 
-        # we need to update the timestamp to run model_policies again, but we don't want to loop over the sync_steps
-        # maybe we need an "after_sync" model policy method?
+        # Set no_sync=True to prevent the syncstep from running again, and set alway_update_timestamp=True to cause
+        # the model_policy to run again.
+        # TODO(smbaker): Revisit this after fixing this issue in the core.
         o.no_sync = True
-        o.save(always_update_timestamp=True)
+        o.save(update_fields=["valid", "no_sync", "updated"], always_update_timestamp=True)
 
     def delete_record(self, o):
         pass
