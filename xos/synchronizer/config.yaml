@@ -15,9 +15,6 @@
 
 
 name: hippie-oss
-accessor:
-  username: xosadmin@opencord.org
-  password: "@/opt/xos/services/hippie-oss/credentials/xosadmin@opencord.org"
 required_models:
   - HippieOSSService
   - HippieOSSServiceInstance
@@ -26,7 +23,7 @@ dependency_graph: "/opt/xos/synchronizers/hippie-oss/model-deps"
 model_policies_dir: "/opt/xos/synchronizers/hippie-oss/model_policies"
 models_dir: "/opt/xos/synchronizers/hippie-oss/models"
 steps_dir: "/opt/xos/synchronizers/hippie-oss/steps"
-
+event_steps_dir: "/opt/xos/synchronizers/hippie-oss/event_steps"
 logging:
   version: 1
   handlers:

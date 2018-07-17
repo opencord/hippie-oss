@@ -24,6 +24,29 @@ class OSSServiceInstancePolicy(Policy):
         self.logger.debug("MODEL_POLICY: handle_create for HippieOSSServiceInstance %s " % si.id)
         self.handle_update(si)
 
+    def update_and_save_subscriber(self, subscriber, si):
+        if si.authentication_state == "STARTED":
+            subscriber.status = "awaiting-auth"
+        elif si.authentication_state == "REQUESTED":
+            subscriber.status = "awaiting-auth"
+        elif si.authentication_state == "APPROVED":
+            subscriber.status = "enabled"
+        elif si.authentication_state == "DENIED":
+            subscriber.status = "auth-failed"
+
+        # If the OSS returns a c_tag use that one
+        if si.c_tag:
+            subscriber.c_tag = si.c_tag
+
+        subscriber.save(always_update_timestamp=False)
+
+    def create_subscriber(self, si):
+        subscriber = RCORDSubscriber()
+        subscriber.onu_device = si.serial_number
+        subscriber.status == "awaiting-auth"
+        
+        return subscriber
+
     def handle_update(self, si):
         self.logger.debug("MODEL_POLICY: handle_update for HippieOSSServiceInstance %s, valid=%s " % (si.id, si.valid))
 
@@ -54,40 +77,45 @@ class OSSServiceInstancePolicy(Policy):
                 onu.admin_state = "ENABLED"
                 onu.save(always_update_timestamp=True)
 
-            # NOTE this assumes that an ONUDevice has only one Subscriber
+            # handling the subscriber status
+
+            subscriber = None
             try:
-                subscriber_changed = False
                 subscriber = RCORDSubscriber.objects.get(onu_device=si.serial_number)
-                self.logger.debug("MODEL_POLICY: found subscriber for valid ONU", onu=si.serial_number)
-
-                # If the OSS returns a c_tag and the subscriber doesn't already have his one
-                if si.c_tag and not subscriber.c_tag:
-                    self.logger.debug("MODEL_POLICY: updating c_tag for RCORDSubscriber %s and HippieOSSServiceInstance %s" % (subscriber.id, si.id))
-                    subscriber.c_tag = si.c_tag
-                    subscriber_changed = True
-                
-                # if the subscriber was in pre-provisioned state, change it's status, otherwise leave it as is
-                if subscriber.status == "pre-provisioned":
-                    subscriber.status = "awaiting-auth"
-                    self.logger.debug("MODEL_POLICY: setting subscriber status", status=subscriber.status)
-                    subscriber_changed = True
-                
-                if not subscriber_changed:
-                    # do not trigger an update unless it's needed
-                    return
             except IndexError:
-                self.logger.debug("MODEL_POLICY: creating RCORDSubscriber for HippieOSSServiceInstance %s" % si.id)
+                # we just want to find out if it exists or not
+                pass
 
-                subscriber = RCORDSubscriber()
-                subscriber.onu_device = si.serial_number
-                subscriber.status == "awaiting-auth"
-
-                # If the OSS returns a c_tag use that one
-                if si.c_tag:
-                    subscriber.c_tag = si.c_tag
-
-            subscriber.save(always_update_timestamp=True)
-            return
+            # if subscriber does not exist
+            self.logger.debug("MODEL_POLICY: handling subscriber", onu_device=si.serial_number, create_on_discovery=si.owner.leaf_model.create_on_discovery)
+            if not subscriber:
+                # and create_on_discovery is false
+                if not si.owner.leaf_model.create_on_discovery:
+                    # do not create the subscriber, unless it has been approved
+                    if si.authentication_state == "APPROVED":
+                        self.logger.debug("MODEL_POLICY: creating subscriber as authentication_sate=APPROVED")
+                        subscriber = self.create_subscriber(si)
+                        self.update_and_save_subscriber(subscriber, si)
+                else:
+                    self.logger.debug("MODEL_POLICY: creating subscriber")
+                    subscriber = self.create_subscriber(si)
+                    self.update_and_save_subscriber(subscriber, si)
+            # if the subscriber is there
+            elif subscriber:
+                # and create_on_discovery is false
+                if not si.owner.leaf_model.create_on_discovery:
+                    # and in status pre-provisioned, do nothing
+                    if subscriber.status == "pre-provisioned":
+                        self.logger.debug("MODEL_POLICY: not updating subscriber status as original status is 'pre-provisioned'")
+                        return
+                    # else update the status
+                    else:
+                        self.logger.debug("MODEL_POLICY: updating subscriber status as original status is not 'pre-provisioned'")
+                        self.update_and_save_subscriber(subscriber, si)
+                # if create_on_discovery is true
+                else:
+                    self.logger.debug("MODEL_POLICY: updating subscriber status")
+                    self.update_and_save_subscriber(subscriber, si)
 
     def handle_delete(self, si):
         pass

@@ -34,6 +34,7 @@ topology_template:
         name: hippie-oss
         kind: oss
         # whitelist: BRCM1234, BRCM4321 # this is an optional list of ONUs that you do want to validate
+        create_on_discovery: false
 
     service_dependency#oss_volt:
       type: tosca.nodes.ServiceDependency

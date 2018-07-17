@@ -34,7 +34,6 @@ def get_models_fn(service_name, xproto_name):
 
 class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
     def setUp(self):
-        global VOLTServiceInstancePolicy, MockObjectList
 
         self.sys_path_save = sys.path
         sys.path.append(xos_dir)
@@ -67,6 +66,7 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
 
         self.policy = OSSServiceInstancePolicy()
         self.si = Mock()
+        self.si.owner = Mock()
 
     def tearDown(self):
         sys.path = self.sys_path_save
@@ -128,25 +128,79 @@ class TestModelPolicyHippieOssServiceInstance(unittest.TestCase):
 
         subscriber = RCORDSubscriber(
             onu_device=self.si.serial_number,
+            status='pre-provisioned'
         )
 
         with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
                 patch.object(RCORDSubscriber.objects, "get_items") as subscriber_objects, \
-                patch.object(RCORDSubscriber, "save") as subscriber_save, \
                 patch.object(ONUDevice, "save") as onu_save:
 
             onu_objects.return_value = [onu]
             subscriber_objects.return_value = [subscriber]
 
             self.policy.handle_update(self.si)
-            subscriber_save.assert_not_called()
             self.assertEqual(onu.admin_state, "ENABLED")
             onu_save.assert_called()
+
+    def test_do_not_create_subscriber(self):
+        self.si.valid = "valid"
+        self.si.backend_code = 1
+        self.si.serial_number = "BRCM1234"
+        self.si.authentication_state = "DENIEND"
+        self.si.owner.leaf_model.create_on_discovery = False
+
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="DISABLED"
+        )
+        
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
+
+            self.policy.handle_update(self.si)
+
+            self.assertEqual(onu.admin_state, "ENABLED")
+            onu_save.assert_called()
+            self.assertEqual(subscriber_save.call_count, 0)
 
     def test_create_subscriber(self):
         self.si.valid = "valid"
         self.si.serial_number = "BRCM1234"
         self.si.backend_code = 1
+
+        onu = ONUDevice(
+            serial_number=self.si.serial_number,
+            admin_state="ENABLED"
+        )
+
+        with patch.object(ONUDevice.objects, "get_items") as onu_objects, \
+                patch.object(RCORDSubscriber, "save", autospec=True) as subscriber_save, \
+                patch.object(ONUDevice, "save") as onu_save:
+
+            onu_objects.return_value = [onu]
+
+            self.policy.handle_update(self.si)
+            self.assertEqual(subscriber_save.call_count, 1)
+
+            subscriber = subscriber_save.call_args[0][0]
+            self.assertEqual(subscriber.onu_device, self.si.serial_number)
+
+            onu_save.assert_not_called()
+    
+    def test_create_subscriber_no_create_on_discovery(self):
+        """
+        test_create_subscriber_no_create_on_discovery
+        When si.owner.create_on_discovery = False we still need to create the subscriber after authentication
+        """
+
+        self.si.valid = "valid"
+        self.si.serial_number = "BRCM1234"
+        self.si.backend_code = 1
+        self.si.owner.leaf_model.create_on_discovery = False
+        self.si.authentication_state = "APPROVED"
 
         onu = ONUDevice(
             serial_number=self.si.serial_number,
