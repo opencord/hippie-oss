@@ -24,7 +24,7 @@ class OSSServiceInstancePolicy(Policy):
         self.logger.debug("MODEL_POLICY: handle_create for HippieOSSServiceInstance %s " % si.id)
         self.handle_update(si)
 
-    def update_and_save_subscriber(self, subscriber, si):
+    def update_and_save_subscriber(self, subscriber, si, update_timestamp=False):
         if si.authentication_state == "STARTED":
             subscriber.status = "awaiting-auth"
         elif si.authentication_state == "REQUESTED":
@@ -38,13 +38,13 @@ class OSSServiceInstancePolicy(Policy):
         if si.c_tag:
             subscriber.c_tag = si.c_tag
 
-        subscriber.save(always_update_timestamp=False)
+        subscriber.save(always_update_timestamp=update_timestamp)
 
     def create_subscriber(self, si):
         subscriber = RCORDSubscriber()
         subscriber.onu_device = si.serial_number
         subscriber.status == "awaiting-auth"
-        
+
         return subscriber
 
     def handle_update(self, si):
@@ -100,22 +100,10 @@ class OSSServiceInstancePolicy(Policy):
                     self.logger.debug("MODEL_POLICY: creating subscriber")
                     subscriber = self.create_subscriber(si)
                     self.update_and_save_subscriber(subscriber, si)
-            # if the subscriber is there
+            # if the subscriber is there, update its state
             elif subscriber:
-                # and create_on_discovery is false
-                if not si.owner.leaf_model.create_on_discovery:
-                    # and in status pre-provisioned, do nothing
-                    if subscriber.status == "pre-provisioned":
-                        self.logger.debug("MODEL_POLICY: not updating subscriber status as original status is 'pre-provisioned'")
-                        return
-                    # else update the status
-                    else:
-                        self.logger.debug("MODEL_POLICY: updating subscriber status as original status is not 'pre-provisioned'")
-                        self.update_and_save_subscriber(subscriber, si)
-                # if create_on_discovery is true
-                else:
-                    self.logger.debug("MODEL_POLICY: updating subscriber status")
-                    self.update_and_save_subscriber(subscriber, si)
+                self.logger.debug("MODEL_POLICY: updating subscriber status")
+                self.update_and_save_subscriber(subscriber, si, update_timestamp=True)
 
     def handle_delete(self, si):
         pass
