@@ -15,9 +15,6 @@
 
 
 name: hippie-oss
-accessor:
-  username: xosadmin@opencord.org
-  password: "@/opt/xos/services/hippie-oss/credentials/xosadmin@opencord.org"
 required_models:
   - HippieOSSService
   - HippieOSSServiceInstance

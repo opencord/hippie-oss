@@ -70,7 +70,7 @@ class OSSServiceInstancePolicy(Policy):
 
                 subscriber = RCORDSubscriber()
                 subscriber.onu_device = si.serial_number
-                subscriber.status == "awaiting-auth"
+                subscriber.status = "awaiting-auth"
 
                 # If the OSS returns a c_tag use that one
                 if si.c_tag:
