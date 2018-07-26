@@ -15,7 +15,7 @@ message HippieOSSServiceInstance (ServiceInstance){
 
     required string valid = 1 [default = "awaiting", choices = "(('awaiting', 'Awaiting Validation'), ('valid', 'Valid'), ('invalid', 'Invalid'))", help_text = "Wether this ONU has been validated by the external OSS", null = False, blank = False];
     required string serial_number = 2 [max_length = 254, null = False, db_index = False, blank = False, tosca_key=True, unique = True];
-    required string authentication_state = 3 [default = "AWAITING", choices = "(('AWAITING', 'Awaiting'), ('STARTED', 'Started'), ('REQUESTED', 'Requested'), ('APPROVED', 'Approved'), ('DENIED', 'Denied'), )", max_length = 50, null = False, db_index = False, blank = False, unique = True];
+    required string authentication_state = 3 [default = "AWAITING", choices = "(('AWAITING', 'Awaiting'), ('STARTED', 'Started'), ('REQUESTED', 'Requested'), ('APPROVED', 'Approved'), ('DENIED', 'Denied'), )", max_length = 50, null = False, db_index = False, blank = False];
     required string of_dpid = 4 [max_length = 254, null = False, db_index = False, blank = False];
     optional int32 c_tag = 5 [null = True, db_index = False, blank = False, unique = True, feedback_state = True];
 }
