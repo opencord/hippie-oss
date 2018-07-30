@@ -65,7 +65,7 @@ class TestSubscriberAuthEvent(unittest.TestCase):
             get_models_fn("../profiles/rcord", "rcord.xproto")
         ])
         import synchronizers.new_base.modelaccessor
-        from auth_event import SubscriberAuthEventStep, model_accessor
+        from dhcp_event import SubscriberDhcpEventStep, model_accessor
 
         # import all class names to globals
         for (k, v) in model_accessor.all_model_classes.items():
@@ -73,7 +73,7 @@ class TestSubscriberAuthEvent(unittest.TestCase):
 
         self.log = log
 
-        self.event_step = SubscriberAuthEventStep(self.log)
+        self.event_step = SubscriberDhcpEventStep(self.log)
 
         self.event = Mock()
 
@@ -81,31 +81,36 @@ class TestSubscriberAuthEvent(unittest.TestCase):
         self.volt.name = "vOLT"
         self.volt.leaf_model = Mock()
 
-        self.hippie_si = HippieOSSServiceInstance()
-        self.hippie_si.serial_number = "BRCM1234"
-        self.hippie_si.save = Mock()
+        self.subscriber = RCORDSubscriber()
+        self.subscriber.onu_device = "BRCM1234"
+        self.subscriber.save = Mock()
+
+        self.mac_address = "aa:bb:cc:dd:ee"
+        self.ip_address = "192.168.3.5"
 
 
     def tearDown(self):
         sys.path = self.sys_path_save
 
-    def test_authenticate_subscriber(self):
+    def test_dhcp_subscriber(self):
 
         self.event.value = json.dumps({
-            'authenticationState': "APPROVED",
-            'deviceId': "of:0000000ce2314000",
-            'portNumber': "101",
+            "deviceId" : "of:0000000000000001",
+            "portNumber" : "1",
+            "macAddress" : self.mac_address,
+            "ipAddress" : self.ip_address
         })
 
         with patch.object(VOLTService.objects, "get_items") as volt_service_mock, \
-            patch.object(HippieOSSServiceInstance.objects, "get_items") as hippie_si_mock, \
+            patch.object(RCORDSubscriber.objects, "get_items") as subscriber_mock, \
             patch.object(self.volt, "get_onu_sn_from_openflow") as get_onu_sn:
 
             volt_service_mock.return_value = [self.volt]
             get_onu_sn.return_value = "BRCM1234"
-            hippie_si_mock.return_value = [self.hippie_si]
+            subscriber_mock.return_value = [self.subscriber]
 
             self.event_step.process_event(self.event)
 
-            self.hippie_si.save.assert_called_with(always_update_timestamp=True, update_fields=['authentication_state', 'no_sync', 'updated'])
-            self.assertEqual(self.hippie_si.authentication_state, 'APPROVED')
+            self.subscriber.save.assert_called()
+            self.assertEqual(self.subscriber.mac_address, self.mac_address)
+            self.assertEqual(self.subscriber.ip_address, self.ip_address)

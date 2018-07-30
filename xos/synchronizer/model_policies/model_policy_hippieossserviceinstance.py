@@ -100,8 +100,8 @@ class OSSServiceInstancePolicy(Policy):
                     self.logger.debug("MODEL_POLICY: creating subscriber")
                     subscriber = self.create_subscriber(si)
                     self.update_and_save_subscriber(subscriber, si)
-            # if the subscriber is there, update its state
-            elif subscriber:
+            # if the subscriber is there and authentication is complete, update its state
+            elif subscriber and si.authentication_state == "APPROVED":
                 self.logger.debug("MODEL_POLICY: updating subscriber status")
                 self.update_and_save_subscriber(subscriber, si, update_timestamp=True)
 

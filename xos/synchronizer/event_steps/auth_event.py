@@ -29,7 +29,7 @@ class SubscriberAuthEventStep(EventStep):
 
     def get_onu_sn(self, event):
         olt_service = VOLTService.objects.first()
-        onu_sn = olt_service.get_onu_sn_from_openflow(event["device_id"], event["port_number"])
+        onu_sn = olt_service.get_onu_sn_from_openflow(event["deviceId"], event["portNumber"])
         if not onu_sn or onu_sn is None:
             self.log.exception("authentication.events: Cannot find onu serial number for this event", kafka_event=event)
             raise Exception("authentication.events: Cannot find onu serial number for this event")
@@ -61,6 +61,6 @@ class SubscriberAuthEventStep(EventStep):
             self.log.exception("authentication.events: Cannot find hippie-oss service instance for this event", kafka_event=value)
             raise Exception("authentication.events: Cannot find hippie-oss service instance for this event")
 
-        si.authentication_state = value["authentication_state"];
+        si.authentication_state = value["authenticationState"];
         si.no_sync = True
         si.save(update_fields=["authentication_state", "no_sync", "updated"], always_update_timestamp=True)
