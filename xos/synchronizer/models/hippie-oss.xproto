@@ -5,8 +5,7 @@ message HippieOSSService (Service){
     option verbose_name = "HippieOSS Service";
     option kind = "OSS";
 
-    optional string whitelist = 1 [help_text = "A comma separated list of ONUs that are deemed to be valid ONUs", null = True, db_index = False, blank = False];
-    required bool create_on_discovery = 2 [help_text = "Wether to create the subscriber when an ONU is discovered", null = False, db_index = False, blank = False, default = True];
+    required bool create_on_discovery = 2 [help_text = "Whether to create the subscriber when an ONU is discovered", null = False, db_index = False, blank = False, default = True];
 }
 
 message HippieOSSServiceInstance (ServiceInstance){
@@ -18,4 +17,12 @@ message HippieOSSServiceInstance (ServiceInstance){
     required string authentication_state = 3 [default = "AWAITING", choices = "(('AWAITING', 'Awaiting'), ('STARTED', 'Started'), ('REQUESTED', 'Requested'), ('APPROVED', 'Approved'), ('DENIED', 'Denied'), )", max_length = 50, null = False, db_index = False, blank = False];
     required string of_dpid = 4 [max_length = 254, null = False, db_index = False, blank = False];
     optional int32 c_tag = 5 [null = True, db_index = False, blank = False, unique = True, feedback_state = True];
+}
+
+message HippieOSSWhiteListEntry (XOSBase) {
+    option verbose_name = "Whitelist";
+    option plural = "hippieosswhitelistentries";
+
+    required manytoone owner->HippieOSSService:whitelist_entries = 1 [db_index = True, null = False, blank = False, tosca_key=True];
+    required string serial_number = 2 [max_length = 254, null = False, db_index = False, blank = False, tosca_key=True, unique_with = "owner"];
 }

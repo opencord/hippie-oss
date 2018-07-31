@@ -25,7 +25,10 @@ class OSSServicePolicy(Policy):
 
         sis = HippieOSSServiceInstance.objects.all()
 
-        whitelist = [x.strip() for x in service.whitelist.split(',')]
+        # TODO(smbaker): This is redudant with HippieOSSWhiteListEntry model policy, though etaining this does provide
+        # a handy way to trigger a full reexamination of the whitelist.
+
+        whitelist = [x.serial_number for x in service.whitelist_entries.all()]
 
         for si in sis:
             if si.serial_number in whitelist and not si.valid == "valid":

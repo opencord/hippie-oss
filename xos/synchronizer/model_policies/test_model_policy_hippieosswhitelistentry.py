@@ -32,7 +32,7 @@ def get_models_fn(service_name, xproto_name):
         return name
     raise Exception("Unable to find service=%s xproto=%s" % (service_name, xproto_name))
 
-class TestModelPolicyHippieOssService(unittest.TestCase):
+class TestModelPolicyHippieOssWhiteListEntry(unittest.TestCase):
     def setUp(self):
         self.sys_path_save = sys.path
         sys.path.append(xos_dir)
@@ -51,7 +51,7 @@ class TestModelPolicyHippieOssService(unittest.TestCase):
         ])
 
         import synchronizers.new_base.modelaccessor
-        from model_policy_hippieossservice import OSSServicePolicy, model_accessor
+        from model_policy_hippieosswhitelistentry import OSSWhiteListEntryPolicy, model_accessor
 
         from mock_modelaccessor import MockObjectList
         self.MockObjectList = MockObjectList
@@ -64,36 +64,10 @@ class TestModelPolicyHippieOssService(unittest.TestCase):
         # tags. Ideally, this wouldn't happen, but it does. So make sure we reset the world.
         model_accessor.reset_all_object_stores()
 
-        self.policy = OSSServicePolicy()
+        self.policy = OSSWhiteListEntryPolicy()
 
-        self.service = HippieOSSService(
-            id = 5367,
-            whitelist_entries = [],
-        )
+        self.service = HippieOSSService()
 
-        # needs to be enabled
-        self.si1 = HippieOSSServiceInstance(
-            valid="awaiting",
-            serial_number="BRCM111"
-        )
-
-        # needs to be enabled
-        self.si2 = HippieOSSServiceInstance(
-            valid="invalid",
-            serial_number="BRCM222"
-        )
-
-        # remains disabled
-        self.si3 = HippieOSSServiceInstance(
-            valid="invalid",
-            serial_number="BRCM333"
-        )
-
-        # needs to be disabled
-        self.si4 = HippieOSSServiceInstance(
-            valid="valid",
-            serial_number="BRCM444"
-        )
 
     def tearDown(self):
         sys.path = self.sys_path_save
@@ -101,29 +75,31 @@ class TestModelPolicyHippieOssService(unittest.TestCase):
 
     def test_whitelist_update(self):
         """
-        When the whitelist is updated, check for added ONU to be enabled and for removed ONU to be disabled
+        When a whitelist entry is added, see that the HippieOSSServiceInstance was set to valid
         """
-        with patch.object(HippieOSSServiceInstance.objects, "get_items") as oss_si, \
-            patch.object(self.si1, "save") as si1_save, \
-            patch.object(self.si2, "save") as si2_save, \
-            patch.object(self.si3, "save") as si3_save, \
-            patch.object(self.si4, "save") as si4_save:
-            oss_si.return_value = [self.si1, self.si2, self.si3, self.si4]
+        with patch.object(HippieOSSServiceInstance.objects, "get_items") as oss_si_items:
+            si = HippieOSSServiceInstance(serial_number="BRCM333", owner_id=self.service.id, valid="invalid")
+            oss_si_items.return_value = [si]
 
-            wle1 = HippieOSSWhiteListEntry(owner_id=self.service.id, serial_number="BRCM111")
-            wle2 = HippieOSSWhiteListEntry(owner_id=self.service.id, serial_number="BRCM222")
-            self.service.whitelist_entries = self.MockObjectList([wle1, wle2])
+            wle = HippieOSSWhiteListEntry(serial_number="BRCM333", owner_id=self.service.id, owner=self.service)
 
-            self.policy.handle_update(self.service)
+            self.policy.handle_update(wle)
 
-            self.si1.save.assert_called_with(always_update_timestamp=True, update_fields=['valid', 'no_sync', 'updated'])
-            self.assertEqual(self.si1.valid, "valid")
-            self.si2.save.assert_called_with(always_update_timestamp=True, update_fields=['valid', 'no_sync', 'updated'])
-            self.assertEqual(self.si2.valid, "valid")
-            self.si3.save.assert_not_called()
-            self.assertEqual(self.si3.valid, "invalid")
-            self.si4.save.assert_called_with(always_update_timestamp=True, update_fields=['valid', 'no_sync', 'updated'])
-            self.assertEqual(self.si4.valid, "invalid")
+            self.assertEqual(si.valid, "valid")
+
+    def test_whitelist_delete(self):
+        """
+        When a whitelist entry is deleted, see that the HippieOSSServiceInstance was set to invalid
+        """
+        with patch.object(HippieOSSServiceInstance.objects, "get_items") as oss_si_items:
+            si = HippieOSSServiceInstance(serial_number="BRCM333", owner_id=self.service.id, valid="valid")
+            oss_si_items.return_value = [si]
+
+            wle = HippieOSSWhiteListEntry(serial_number="BRCM333", owner_id=self.service.id, owner=self.service)
+
+            self.policy.handle_delete(wle)
+
+            self.assertEqual(si.valid, "invalid")
 
 if __name__ == '__main__':
     unittest.main()

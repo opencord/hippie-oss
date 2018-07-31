@@ -78,7 +78,7 @@ class TestSyncHippieOssServiceInstance(unittest.TestCase):
 
         self.oss = Mock()
         self.oss.name = "oss"
-        self.oss.whitelist = "BRCM5678, BRCM1234"
+        self.oss.id = 5367
 
         # create a mock HippieOssServiceInstance instance
         self.o = Mock()
@@ -92,16 +92,18 @@ class TestSyncHippieOssServiceInstance(unittest.TestCase):
         sys.path = self.sys_path_save
 
     def test_sync_valid(self):
+        with patch.object(HippieOSSWhiteListEntry.objects, "get_items") as whitelist_items:
+            # Create a whitelist entry for self.o's serial number
+            whitelist_entry = HippieOSSWhiteListEntry(owner_id=self.oss.id, serial_number=self.o.serial_number)
+            whitelist_items.return_value = [whitelist_entry]
 
-        self.sync_step().sync_record(self.o)
+            self.sync_step().sync_record(self.o)
 
-        self.assertEqual(self.o.valid, "valid")
-        self.assertTrue(self.o.no_sync)
-        self.o.save.assert_called()
+            self.assertEqual(self.o.valid, "valid")
+            self.assertTrue(self.o.no_sync)
+            self.o.save.assert_called()
 
     def test_sync_rejected(self):
-        self.oss.whitelist = ""
-
         self.sync_step().sync_record(self.o)
 
         self.assertEqual(self.o.valid, "invalid")

@@ -26,7 +26,6 @@ topology_template:
       properties:
         name: hippie-oss
         must-exist: true
-        whitelist: ""
 
     oss_si:
       type: tosca.nodes.HippieOSSServiceInstance

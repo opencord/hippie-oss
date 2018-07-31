@@ -14,7 +14,7 @@
 
 import json
 from synchronizers.new_base.syncstep import SyncStep, model_accessor
-from synchronizers.new_base.modelaccessor import HippieOSSServiceInstance
+from synchronizers.new_base.modelaccessor import HippieOSSServiceInstance, HippieOSSWhiteListEntry
 
 from xosconfig import Config
 from multistructlog import create_logger
@@ -27,14 +27,14 @@ class SyncOSSServiceInstance(SyncStep):
 
     def validate_in_external_oss(self, si):
         # This is where you may want to call your OSS Database to verify if this ONU can be activated
-
-        # for demonstration the HippieOSSService has a whitelist and if the serial_number
-        # you provided is not in that blacklist, it won't be validated
         oss_service = si.owner.leaf_model
 
-        if si.serial_number not in [x.strip() for x in oss_service.whitelist.split(',')]:
-            return False
-        return True
+        # See if there is a matching entry in the whitelist.
+
+        matching_entries = HippieOSSWhiteListEntry.objects.filter(owner_id=oss_service.id,
+                                                                  serial_number=si.serial_number)
+
+        return len(matching_entries)>0
 
     def get_suscriber_c_tag(self, serial_number):
         # If it's up to your OSS to generate c_tags, fetch them here
