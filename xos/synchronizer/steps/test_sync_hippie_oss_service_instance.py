@@ -63,7 +63,7 @@ class TestSyncHippieOssServiceInstance(unittest.TestCase):
         build_mock_modelaccessor(xos_dir, services_dir, [
             get_models_fn("hippie-oss", "hippie-oss.xproto"),
             get_models_fn("olt-service", "volt.xproto"),
-            get_models_fn("../profiles/rcord", "rcord.xproto")
+            get_models_fn("rcord", "rcord.xproto")
         ])
         import synchronizers.new_base.modelaccessor
 
